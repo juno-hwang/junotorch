@@ -1,9 +1,0 @@
-README.md
-setup.py
-junotools.egg-info/PKG-INFO
-junotools.egg-info/SOURCES.txt
-junotools.egg-info/dependency_links.txt
-junotools.egg-info/requires.txt
-junotools.egg-info/top_level.txt
-junotorch/__init__.py
-junotorch/vision/__init__.py

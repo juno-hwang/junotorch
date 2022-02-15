@@ -1,5 +1,5 @@
 Metadata-Version: 2.1
-Name: junotools
+Name: junotorch
 Version: 0.3.0
 Summary: Custom pytorch modules that I use often
 Home-page: https://github.com/juno-hwang/junotorch
