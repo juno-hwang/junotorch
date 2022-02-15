@@ -1,7 +1,7 @@
 import setuptools
 
 setuptools.setup(
-    name="junotools", # Replace with your own username
+    name="junotorch", # Replace with your own username
     version="0.3.0",
     author="Juno Hwang",
     author_email="wnsdh10@snu.ac.kr",
