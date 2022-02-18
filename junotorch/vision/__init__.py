@@ -57,3 +57,17 @@ def ConvNeXt(dim, kernel_size, dim_mult=4, groups=4):
 					nn.GELU(), Shuffle(dim*dim_mult),
 					nn.Conv2d(dim*dim_mult, dim, kernel_size=1, groups=groups),
 				))
+
+def Upsampler(d_in, d_out, window_size, stride=2):
+	return nn.Sequential(
+			ConvNeXt( d_in, kernel_size=window_size),
+			nn.GELU(),
+			nn.Conv2d( d_in, d_out, window_size, stride=2, padding=window_size//2 )
+		)
+
+def Downsampler(d_in, d_out, window_size, stride=2):
+	return nn.Sequential(
+			ConvNeXt( d_in, kernel_size=window_size),
+			nn.GELU(),
+			nn.ConvTranspose2d( d_in, d_out, window_size, stride=2, padding=window_size//2 )
+		)
