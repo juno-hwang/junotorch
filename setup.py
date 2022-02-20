@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="junotorch", # Replace with your own username
-    version="0.3.1",
+    version="0.4.5",
     author="Juno Hwang",
     author_email="wnsdh10@snu.ac.kr",
     description="Custom pytorch modules that I use often",
