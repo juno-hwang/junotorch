@@ -13,7 +13,8 @@ def drawImage(img, scale=2):
     if len(img.shape)==4 :
         plt.figure(figsize=(img.shape[0]*scale, scale))
         for i in range(img.shape[0]):
-            plt.subplot(1,img.shape[0], i+1); plt.imshow(img[i].permute(1,2,0)); plt.xticks([]); plt.yticks([], interpolation='nearest');
+            plt.subplot(1,img.shape[0], i+1); plt.imshow(img[i].permute(1,2,0), interpolation='nearest');
+            plt.xticks([]); plt.yticks([]);
         plt.show()
     else:
         plt.imshow(img.permute(1,2,0)); plt.xticks([]); plt.yticks([]);
