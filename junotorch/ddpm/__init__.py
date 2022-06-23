@@ -12,6 +12,9 @@ from tqdm.auto import tqdm
 from torch_ema import ExponentialMovingAverage
 import junotorch.vision as v
 
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 class DDPM:
     def __init__(self, backbone, batch_size, s=1e-3, device='cuda', result_folder=None, pretrained_model=None):
         self.backbone = backbone
