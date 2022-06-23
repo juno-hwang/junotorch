@@ -10,7 +10,7 @@ from torchvision import transforms, utils
 from torchvision.datasets import ImageFolder
 from tqdm.auto import tqdm
 from torch_ema import ExponentialMovingAverage
-import vision as v
+import junotorch.vision as v
 
 class DDPM:
     def __init__(self, backbone, batch_size, s=1e-3, device='cuda', result_folder=None, pretrained_model=None):
