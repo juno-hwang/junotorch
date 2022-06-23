@@ -34,12 +34,13 @@ class DDPM:
         self.beta_ = (1-self.alpha_[:-1])/(1-self.alpha_[1:]) * self.beta
         self.ema = ExponentialMovingAverage(self.backbone.parameters(), decay=0.999)
         
+        self.path = None
         if len(glob.glob(self.result_folder+'/*.pt')) or pretrained_model is not None:
             if pretrained_model is not None:
-                path = glob.glob(self.result_folder+'/*.pt')[0]
+                self.path = glob.glob(self.result_folder+'/*.pt')[0]
             else:
-                path = pretrained_model
-            pt = torch.load(path)
+                self.path = pretrained_model
+            pt = torch.load(self.path)['ema']
             self.ema.load_state_dict(pt)
             self.ema.copy_to(self.backbone.parameters())
             self.step = pt['num_updates']
@@ -120,6 +121,8 @@ class DDPM:
         )
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=16)
         self.opt = AdamW(self.backbone.parameters(), lr=lr)
+        if self.path:
+            self.opt.load_state_dict(torch.load(self.path)['opt'])
         history = []
         
         grad_accum_iter = 0
@@ -150,4 +153,4 @@ class DDPM:
                         utils.save_image(image_list,
                              f'{self.result_folder}/sample_{self.step//1000:04d}_{np.mean(history[-1000*grad_accum:]):.6f}.png',
                              nrow = 5)
-                        torch.save(self.ema.state_dict(), self.result_folder + '/model.pt')
+                        torch.save({'ema':self.ema.state_dict(), 'opt':self.opt.state_dict()}, self.result_folder + '/model.pt')
