@@ -111,6 +111,7 @@ class DDPM:
             path,
             transforms.Compose([
                 transforms.Resize(self.backbone.image_size),
+                transforms.RandomCrop(self.backbone.image_size),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Lambda(lambda t: (t * 2) - 1),
