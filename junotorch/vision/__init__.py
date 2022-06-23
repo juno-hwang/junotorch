@@ -25,7 +25,19 @@ class Residual(nn.Module):
 		self.fn = fn
 
 	def forward(self, x):
-		return self.fn(x) + x
+		return (self.fn(x) + x) / 1.414
+
+class ResBlock(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.fn = nn.Sequential(
+            nn.GroupNorm(dim//4, dim), nn.GELU(), nn.Conv2d(dim, dim, kernel_size=3, padding=1),
+            nn.GroupNorm(dim//4, dim), nn.GELU(), nn.Conv2d(dim, dim, kernel_size=3, padding=1)
+        )
+        self.proj = nn.Conv2d(dim, dim, kernel_size=1)
+        
+    def forward(self, x):
+        return (self.fn(x) + self.proj(x)) / np.sqrt(2)
 
 class ConditionalResidual(nn.Module):
     def __init__(self, d_condition, d_x, window_size, scale_factor, groups=1):
@@ -67,23 +79,13 @@ def ConvMixerOriginal(dim, depth, kernel_size=9, patch_size=7, n_classes=1000):
 		nn.Linear(dim, n_classes)
 	)
 
-def ConvNeXt(dim, kernel_size, dim_mult=2, groups=2):
-	if groups == 1:
-		return Residual(nn.Sequential(
-					nn.Conv2d(dim, dim, kernel_size=kernel_size, padding=kernel_size//2, groups=dim//8),
-					nn.BatchNorm2d(dim),
-					nn.Conv2d(dim, dim*dim_mult, kernel_size=1),
-					nn.GELU(),
-					nn.Conv2d(dim*dim_mult, dim, kernel_size=1),
-				))
-	else:
-		return Residual(nn.Sequential(
-					nn.Conv2d(dim, dim, kernel_size=kernel_size, padding=kernel_size//2, groups=dim//8),
-					nn.BatchNorm2d(dim),
-					nn.Conv2d(dim, dim*dim_mult, kernel_size=1, groups=groups),
-					nn.GELU(), Shuffle(dim*dim_mult),
-					nn.Conv2d(dim*dim_mult, dim, kernel_size=1, groups=groups),
-				))
+def ConvNeXt(dim, kernel_size, dim_mult=4):
+	return Residual(nn.Sequential(
+				nn.Conv2d(dim, dim * dim_mult, kernel_size=1),
+				nn.BatchNorm2d(dim * dim_mult), nn.GELU(),
+				nn.Conv2d(dim * dim_mult, dim, kernel_size=1),
+				nn.Conv2d(dim*dim_mult, dim, kernel_size=kernel_size, padding=kernel_size//2),
+			))
 
 def Downsampler(d_in, d_out, window_size, stride=2):
 	return nn.Sequential(
@@ -99,59 +101,88 @@ def Upsampler(d_in, d_out, window_size, stride=2):
 			nn.ConvTranspose2d( d_in, d_out, window_size, stride=2, padding=window_size//2 )
 		)
 
-class Tokenizer2d(nn.Module):
-    def __init__(self, d_in, n_token, dim, depth, patch_size):
+class AdaGN(nn.Module):
+    def __init__(self, dim_in, dim_out, chunk):
         super().__init__()
-        self.n_token, self.d_in, self.patch_size = n_token, d_in, patch_size
-        self.eps = 1e-6
-        self.enc = nn.Sequential(
-            nn.Conv2d(d_in, dim, kernel_size=patch_size, stride=patch_size),
-            * [ConvNeXt(dim=dim, kernel_size=1) for i in range(depth) ],
-            nn.GELU(), nn.Conv2d(dim, n_token, kernel_size=1)
-        )
-        self.dec = nn.Sequential(
-            nn.Conv2d(n_token, dim, kernel_size=1), nn.GELU(),
-            * [ConvNeXt(dim=dim, kernel_size=5) for i in range(depth) ],
-            nn.GELU(),
-            nn.ConvTranspose2d(dim, d_in, kernel_size=patch_size, stride=patch_size)
-        )
-        n_param = 0
-        for p in self.parameters():
-            n_param += np.prod(p.shape)
-        print('# of params : ', n_param)
+        self.gn = nn.GroupNorm(dim_in//chunk, dim_out)
+        self.mean = nn.Sequential(nn.Linear(dim_in, dim_out), nn.GELU(), nn.Linear(dim_out, dim_out))
+        self.std = nn.Sequential(nn.Linear(dim_in, dim_out), nn.GELU(), nn.Linear(dim_out, dim_out))
         
-    def device(self):
-        for p in self.parameters():
-            return p.device
+    def forward(self, x, c):
+        mu = self.mean(c)
+        sig = self.std(c)
+        return (sig.exp()[:,:,None,None] * self.gn(x) + mu[:,:,None,None])
+
+class AdaConvNeXt(nn.Module):
+    def __init__(self, dim, kernel_size, dim_mult=4):
+        super().__init__()
+        self.dim = dim
+        self.adagn = AdaGN(dim, dim*dim_mult, chunk=4)
+        self.conv1 = nn.Conv2d(dim, dim * dim_mult, kernel_size=1)
+        self.conv2 = nn.Conv2d(dim * dim_mult, dim, kernel_size=1)
+        self.conv3 = nn.Conv2d(dim, dim, kernel_size=kernel_size, padding=kernel_size//2)
+        self.residual = nn.Conv2d(dim, dim, kernel_size=1)
         
-    def forward(self, X, training=False):
-        prob = self.enc(X.to(self.device())).softmax(dim=1)
-        idx = prob.argmax(dim=1, keepdim=True)
-        onehot = torch.zeros_like(prob)
-        onehot.scatter_(1, idx, 1)
-        if not training:
-            return onehot
-        else:
-            z = onehot + prob - prob.detach()
-            loss = F.mse_loss(self.dec(z), X)# - ( onehot * (prob*(1-self.eps)+0.5*self.eps).log() ).mean()
-            return z, loss
-    
-    def fit(self, X, n_iter, batch_size=16, draw_every=1000):
-        self.train()
-        opt = torch.optim.AdamW(self.parameters(), lr=0.0001)
-        loader = DataLoader(X, batch_size=batch_size, shuffle=True)
-        for n in range(n_iter):
-            for i, x in enumerate(loader):
-                opt.zero_grad()
-                x = x.to(self.device())
-                z, loss = self(x, training=True)
-                loss.backward()
-                opt.step()
-                if draw_every != None:
-                    if i%draw_every==0 and i:
-                        print(i, loss.item())
-                       	self.eval()
-                        drawImage(x[:10])
-                        drawImage(self.dec(self(x[:10])))
-                        self.train()
-        self.eval()
+    def forward(self, x, c):
+        y = self.conv1(x)
+        y = F.gelu(self.adagn(y, c))
+        y = self.conv3(self.conv2(y))
+        return (self.residual(x) + y) / 1.414
+
+class EfficientUNet(nn.Module):
+    def __init__(self, dim, image_size, mid_depth, n_downsample, T, base_dim=128, n_resblock=1):
+        super().__init__()
+        self.dim, self.T = dim, T
+        self.image_size = image_size
+        self.n_downsample =  n_downsample
+        base_dim = base_dim
+        dims =  [ min(base_dim*2**i, dim) for i in range(n_downsample+1) ]
+        dims[-1] = dim
+        
+        self.enc = nn.Conv2d(3, base_dim, kernel_size=3, padding=1)
+        self.downs = nn.ModuleList([
+            nn.ModuleList([
+                nn.Conv2d(dims[i], dims[i+1], kernel_size=3, stride=2, padding=1),
+                nn.Sequential(nn.Linear(dim, dims[i+1]*2), nn.GELU(), nn.Linear(dims[i+1]*2, dims[i+1])),
+                nn.Sequential( *[ResBlock(dims[i+1]) for n in range(n_resblock)] ),
+            ])for i in range(self.n_downsample)
+        ])
+        self.middle = nn.ModuleList([ AdaConvNeXt(dim, kernel_size=9) for i in range(mid_depth) ])
+        self.ups = nn.ModuleList([
+            nn.ModuleList([
+                ResBlock(dims[i+1]),
+                nn.Sequential(nn.Linear(dim, dims[i+1]*2), nn.GELU(), nn.Linear(dims[i+1]*2, dims[i+1])),
+                nn.ConvTranspose2d(dims[i+1], dims[i], kernel_size=4, stride=2, padding=1)
+            ])for i in range(self.n_downsample)[::-1]
+        ])
+        self.dec = nn.Conv2d(base_dim, 3, kernel_size=1)
+        
+        t = np.linspace(0, np.pi, self.T+1)
+        self.t_sinusoid = np.array([ np.cos(t*np.exp(freq))
+                           for freq
+                           in np.linspace(0, np.log(self.T), self.dim)
+                          ]).T.tolist()
+        
+        n_params = sum( [np.prod(p.shape) for p in self.parameters()] )
+        print(f'{n_params/1e6:.1f}M params')
+        
+    def t_emb(self, t):
+        return torch.Tensor( [self.t_sinusoid[i] for i in t] ).to(self.device)
+        
+    def forward(self, x, t):
+        if type(t) == int:
+            t = [t]*x.shape[0]
+        self.device = next(self.parameters()).device
+        x, t, xs = x.to(self.device), self.t_emb(t), []
+        
+        x = self.enc(x)
+        for down, emb, layer in self.downs:
+            x = layer( (down(x) + emb(t)[:,:,None,None] )/np.sqrt(2) )
+            xs.append(x)
+        for mid in self.middle:
+            x = mid(x, t)
+        for layer, emb, up in self.ups:
+            x = (x + xs.pop() + emb(t)[:,:,None,None] ) / np.sqrt(3)
+            x = layer(x)
+            x = up(x)
+        return self.dec(x)
