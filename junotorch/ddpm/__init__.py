@@ -97,7 +97,7 @@ class DDPM:
         x, z = self.q_xt(x.to(self.device), t, return_noise=True)
         if self.loss_type == 'l1':
             return (self.backbone(x, t)-z).abs().mean()
-        if self.loss_type == 'l1':
+        if self.loss_type == 'l2':
             return (self.backbone(x, t)-z).square().mean()
     
     def make_test_image(self, x):
