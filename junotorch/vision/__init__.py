@@ -201,7 +201,7 @@ class EfficientUNetUpsampler(EfficientUNet):
         self.device = next(self.parameters()).device
         x, t, xs = x.to(self.device), self.t_emb(t), []
         
-        z = F.interpolate(scale_factor=self.image_size//self.small_image_size, 'bilinear').to(self.device)
+        z = F.interpolate(z, scale_factor=self.image_size//self.small_image_size, mode='bilinear').to(self.device)
         x = self.enc(torch.cat([x,c], dim=1))
         for down, emb, layer in self.downs:
             x = layer( (down(x) + emb(t)[:,:,None,None] )/np.sqrt(2) )
