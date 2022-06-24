@@ -151,6 +151,7 @@ class DDPMUpsampler(DDPM):
         self.backbone.train()
         t = np.random.randint(self.T, size=x.shape[0]) + 1
         z = F.avg_pool2d(x, kernel_size=self.backbone.image_size//self.backbone.small_image_size)
+        z = transforms.GaussianBlur(3, sigma=(0.4, 0.6))(z)
         x, noise = self.q_xt(x.to(self.device), t, return_noise=True)
         return (self.backbone(x, z, t)-noise).square().mean()
     
