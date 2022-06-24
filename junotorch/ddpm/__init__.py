@@ -10,13 +10,12 @@ from torchvision import transforms, utils
 from torchvision.datasets import ImageFolder
 from tqdm.auto import tqdm
 from torch_ema import ExponentialMovingAverage
-import junotorch.vision as v
 
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class DDPM:
-    def __init__(self, backbone, batch_size, s=1e-3, device='cuda', result_folder=None, pretrained_model=None):
+    def __init__(self, backbone, batch_size, s=1e-3, device='cuda', result_folder=None, pretrained_model=None, loss_type='l1'):
         self.backbone = backbone
         self.T = self.backbone.T
         self.device = device
@@ -24,6 +23,7 @@ class DDPM:
         self.result_folder = result_folder
         self.batch_size = batch_size
         self.step = 0
+        self.loss_type = loss_type
         try :
             os.mkdir(result_folder)
         except:
@@ -64,13 +64,11 @@ class DDPM:
             return x0
     
     @torch.no_grad()
-    def p(self, x, t, mask=None, x_init=None):
+    def p(self, x, t):
         self.backbone.eval()
-        x = x.to(self.device)
-        if mask is not None:
-            x = x*(1-mask) + x_init*mask
         if type(t) == int :
             t = np.array([t] * x.shape[0])
+        x = x.to(self.device)
         alpha, alpha_, alpha_m1 = self.extract(self.alpha, t-1), self.extract(self.alpha_, t), self.extract(self.alpha_, t-1)
         beta, beta_ = self.extract(self.beta, t-1), self.extract(self.beta_, t-1)
         sigma = beta_ ** 0.5
@@ -89,26 +87,22 @@ class DDPM:
             x = self.p(x, i)
         return x
     
-    @torch.no_grad()
-    def inpaint(self, x, t, mask):
-        mask = torch.Tensor(mask).to(self.device)
-        x = x.to(self.device)
-        x_noised = self.q_xt(x, t)
-        for i in range(t,0,-1):
-            x_noised = self.p(x_noised, i, mask, x)
-        return x_noised
-    
-    def generate(self, n, size=None):
-        if size == None :
-            size = self.backbone.image_size
-        x = torch.randn(n, 3, size, size)
+    def generate(self, n):
+        x = torch.randn(n, 3, self.backbone.image_size, self.backbone.image_size)
         return self.restore(x, self.T)
     
     def loss(self, x):
         self.backbone.train()
         t = np.random.randint(self.T, size=x.shape[0]) + 1
         x, z = self.q_xt(x.to(self.device), t, return_noise=True)
-        return (self.backbone(x, t)-z).square().mean()
+        if self.loss_type == 'l1':
+            return (self.backbone(x, t)-z).abs().mean()
+        if self.loss_type == 'l1':
+            return (self.backbone(x, t)-z).square().mean()
+    
+    def make_test_image(self, x):
+        image_list = [ self.restore(self.q_xt(x,i), i).cpu() for i in [0, int(self.T*0.7), self.T, self.T] ]
+        return torch.cat(image_list, dim=0)/2 + 0.5
     
     def fit(self, path, lr=1e-4, grad_accum=1):
         dataset = ImageFolder(
@@ -147,13 +141,47 @@ class DDPM:
                 print(f'{self.step} step : loss {np.mean(history[-1000*grad_accum:]):.8f} /  {time.time()-stt:.3f}sec')
                 if self.step % 1000 == 0 and self.step and grad_accum_iter == 0:
                     with self.ema.average_parameters():
-                        xx, yy = np.meshgrid(np.arange(self.backbone.image_size), np.arange(self.backbone.image_size))
-                        top_mask = xx > self.backbone.image_size/2
-                        
-                        image_list = [ self.restore(self.q_xt(data[:5],i), i).cpu()
-                         for i in [0, int(self.T*0.7), self.T, self.T] ]
-                        image_list = torch.cat(image_list, dim=0)/2 + 0.5
-                        utils.save_image(image_list,
+                        utils.save_image(self.make_test_image(data[:5]),
                              f'{self.result_folder}/sample_{self.step//1000:04d}_{np.mean(history[-1000*grad_accum:]):.6f}.png',
                              nrow = 5)
                         torch.save({'ema':self.ema.state_dict(), 'opt':self.opt.state_dict()}, self.result_folder + '/model.pt')
+                        
+class DDPMUpsampler(DDPM):
+    def loss(self, x):
+        self.backbone.train()
+        t = np.random.randint(self.T, size=x.shape[0]) + 1
+        z = F.avg_pool2d(x, kernel_size=self.backbone.image_size//self.backbone.small_image_size)
+        x, noise = self.q_xt(x.to(self.device), t, return_noise=True)
+        return (self.backbone(x, z, t)-noise).square().mean()
+    
+    @torch.no_grad()
+    def p(self, x, z, t):
+        if type(t) == int :
+            t = np.array([t] * x.shape[0])
+        self.backbone.eval()
+        x, z = x.to(self.device), z.to(self.device)
+        alpha, alpha_, alpha_m1 = self.extract(self.alpha, t-1), self.extract(self.alpha_, t), self.extract(self.alpha_, t-1)
+        beta, beta_ = self.extract(self.beta, t-1), self.extract(self.beta_, t-1)
+        sigma = beta_ ** 0.5
+        
+        noise = self.backbone(x, z, t)
+        x0 = (x - (1-alpha_).sqrt() * noise) / alpha_.sqrt()
+        x0 = x0.clamp(min=-1, max=1)
+        c_x0 = alpha_m1.sqrt() * beta / (1-alpha_)
+        c_xt = alpha.sqrt()*(1-alpha_m1)/(1-alpha_)
+        mu = c_x0 * x0 + c_xt * x
+        return mu + sigma * torch.randn_like(x)
+    
+    @torch.no_grad()
+    def restore(self, x, z, t):
+        for i in range(t,0,-1):
+            x = self.p(x, z, i)
+        return x
+    
+    def upscale(self, z):
+        x = torch.randn(z.shape[0], 3, self.backbone.image_size, self.backbone.image_size)
+        return self.restore(x, z, self.T)
+    
+    def make_test_image(self, x):
+        image_list = [ x, self.upscale(F.avg_pool2d(x, kernel_size=self.backbone.image_size//self.backbone.small_image_size)) ]
+        return torch.cat(image_list, dim=0)/2 + 0.5
