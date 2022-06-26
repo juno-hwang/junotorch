@@ -39,10 +39,11 @@ class DDPM:
         
         self.path = None
         if len(glob.glob(self.result_folder+'/*.pt')) or pretrained_model is not None:
-            if pretrained_model is not None:
+            if pretrained_model is None:
                 self.path = glob.glob(self.result_folder+'/*.pt')[0]
             else:
                 self.path = pretrained_model
+            print('Pretrained model found :',self.path)
             pt = torch.load(self.path)['ema']
             self.ema.load_state_dict(pt)
             self.ema.copy_to(self.backbone.parameters())
@@ -153,7 +154,10 @@ class DDPMUpsampler(DDPM):
         z = F.avg_pool2d(x, kernel_size=self.backbone.image_size//self.backbone.small_image_size)
         z = transforms.GaussianBlur(3, sigma=(0.4, 0.6))(z)
         x, noise = self.q_xt(x.to(self.device), t, return_noise=True)
-        return (self.backbone(x, z, t)-noise).square().mean()
+        if self.loss_type == 'l1':
+            return (self.backbone(x, z, t)-z).abs().mean()
+        if self.loss_type == 'l2':
+            return (self.backbone(x, z, t)-z).square().mean()
     
     @torch.no_grad()
     def p(self, x, z, t):
@@ -184,5 +188,5 @@ class DDPMUpsampler(DDPM):
         return self.restore(x, z, self.T)
     
     def make_test_image(self, x):
-        image_list = [ x, self.upscale(F.avg_pool2d(x, kernel_size=self.backbone.image_size//self.backbone.small_image_size)) ]
+        image_list = [ x, self.upscale(F.avg_pool2d(x, kernel_size=self.backbone.image_size//self.backbone.small_image_size)).cpu() ]
         return torch.cat(image_list, dim=0)/2 + 0.5
