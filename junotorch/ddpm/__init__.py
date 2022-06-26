@@ -139,11 +139,11 @@ class DDPM:
                     self.step += 1
                     grad_accum_iter = 0
                     
-                print(f'{self.step} step : loss {np.mean(history[-1000*grad_accum:]):.8f} /  {time.time()-stt:.3f}sec')
+                print(f'{self.step} step : loss {np.mean(history[-1000*grad_accum:]*grad_accum):.8f} /  {time.time()-stt:.3f}sec')
                 if self.step % 1000 == 0 and self.step and grad_accum_iter == 0:
                     with self.ema.average_parameters():
                         utils.save_image(self.make_test_image(data[:5]),
-                             f'{self.result_folder}/sample_{self.step//1000:04d}_{np.mean(history[-1000*grad_accum:]):.6f}.png',
+                             f'{self.result_folder}/sample_{self.step//1000:04d}_{np.mean(history[-1000*grad_accum:]*grad_accum):.6f}.png',
                              nrow = 5)
                         torch.save({'ema':self.ema.state_dict(), 'opt':self.opt.state_dict()}, self.result_folder + '/model.pt')
                         
@@ -155,9 +155,9 @@ class DDPMUpsampler(DDPM):
         z = transforms.GaussianBlur(3, sigma=(0.4, 0.6))(z)
         x, noise = self.q_xt(x.to(self.device), t, return_noise=True)
         if self.loss_type == 'l1':
-            return (self.backbone(x, z, t)-z).abs().mean()
+            return (self.backbone(x, z, t)-noise).abs().mean()
         if self.loss_type == 'l2':
-            return (self.backbone(x, z, t)-z).square().mean()
+            return (self.backbone(x, z, t)-noise).square().mean()
     
     @torch.no_grad()
     def p(self, x, z, t):
@@ -184,8 +184,9 @@ class DDPMUpsampler(DDPM):
         return x
     
     def upscale(self, z):
-        x = torch.randn(z.shape[0], 3, self.backbone.image_size, self.backbone.image_size)
-        return self.restore(x, z, self.T)
+        x = F.interpolate(z, scale_factor=self.backbone.image_size//self.backbone.small_image_size, mode='bicubic')
+        x = self.qt(x, int(self.T*0.9)).to(self.device)
+        return self.restore(x, z, int(self.T*0.9))
     
     def make_test_image(self, x):
         image_list = [ x, self.upscale(F.avg_pool2d(x, kernel_size=self.backbone.image_size//self.backbone.small_image_size)).cpu() ]
