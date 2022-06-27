@@ -15,7 +15,7 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class DDPM:
-    def __init__(self, backbone, batch_size, s=1e-3, device='cuda', result_folder=None, pretrained_model=None, loss_type='l1'):
+    def __init__(self, backbone, batch_size, s=1e-3, device='cuda', result_folder='', pretrained_model=None, loss_type='l1'):
         self.backbone = backbone
         self.T = self.backbone.T
         self.device = device
