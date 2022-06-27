@@ -84,7 +84,7 @@ class DDPM:
     
     @torch.no_grad()
     def restore(self, x, t):
-        for i in range(t,0,-1):
+        for i in tqdm(range(t,0,-1)):
             x = self.p(x, i)
         return x
     
@@ -179,7 +179,7 @@ class DDPMUpsampler(DDPM):
     
     @torch.no_grad()
     def restore(self, x, z, t):
-        for i in range(t,0,-1):
+        for i in tqdm(range(t,0,-1)):
             x = self.p(x, z, i)
         return x
     
