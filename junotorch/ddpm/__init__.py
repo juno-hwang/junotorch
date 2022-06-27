@@ -44,7 +44,7 @@ class DDPM:
             else:
                 self.path = pretrained_model
             print('Pretrained model found :',self.path)
-            pt = torch.load(self.path)['ema']
+            pt = torch.load(self.path, map_location='cpu')['ema']
             self.ema.load_state_dict(pt)
             self.ema.copy_to(self.backbone.parameters())
             self.step = pt['num_updates']
@@ -120,7 +120,7 @@ class DDPM:
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=16)
         self.opt = AdamW(self.backbone.parameters(), lr=lr)
         if self.path:
-            self.opt.load_state_dict(torch.load(self.path)['opt'])
+            self.opt.load_state_dict(torch.load(self.path, map_location='cpu')['opt'])
         history = []
         
         grad_accum_iter = 0
