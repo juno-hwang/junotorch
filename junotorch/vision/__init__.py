@@ -193,7 +193,6 @@ class EfficientUNetUpsampler(EfficientUNet):
         self.enc = nn.Conv2d(6, base_dim, kernel_size=3, padding=1)
         self.small_image_size = small_image_size
         n_params = sum( [np.prod(p.shape) for p in self.parameters()] )
-        print(f'\r{n_params/1e6:.1f}M params')
         
     def forward(self, x, z, t):
         if type(t) == int:
