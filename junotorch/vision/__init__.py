@@ -8,12 +8,12 @@ from torch.utils.data import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
 
-def drawImage(img, scale=2):
+def drawImage(img, scale=2, interpolation='nearest'):
     img = img.cpu().detach().clamp(min=0, max=1)
     if len(img.shape)==4 :
         plt.figure(figsize=(img.shape[0]*scale, scale))
         for i in range(img.shape[0]):
-            plt.subplot(1,img.shape[0], i+1); plt.imshow(img[i].permute(1,2,0), interpolation='nearest');
+            plt.subplot(1,img.shape[0], i+1); plt.imshow(img[i].permute(1,2,0), interpolation=interpolation);
             plt.xticks([]); plt.yticks([]);
         plt.show()
     else:
