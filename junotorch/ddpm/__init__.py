@@ -35,7 +35,7 @@ class DDPM:
         self.alpha = 1 - self.beta
         self.alpha_ = torch.Tensor(np.append(1, np.cumprod(self.alpha)))
         self.beta_ = (1-self.alpha_[:-1])/(1-self.alpha_[1:]) * self.beta
-        self.ema = ExponentialMovingAverage(self.backbone.parameters(), decay=0.999)
+        self.ema = ExponentialMovingAverage(self.backbone.parameters(), decay=0.9999)
         
         self.path = None
         if len(glob.glob(self.result_folder+'/*.pt')) or pretrained_model is not None:
