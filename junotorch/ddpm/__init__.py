@@ -186,10 +186,10 @@ class DDPMUpsampler(DDPM):
             x = self.p(x, z, i)
         return x
     
-    def upscale(self, z):
+    def upscale(self, z, forget=0.9):
         x = F.interpolate(z, scale_factor=self.backbone.image_size//self.backbone.small_image_size, mode='bicubic')
-        x = self.q_xt(x, int(self.T*0.9)).to(self.device)
-        return self.restore(x, z, int(self.T*0.9))
+        x = self.q_xt(x, int(self.T*forget)).to(self.device)
+        return self.restore(x, z, int(self.T*forget))
     
     def make_test_image(self, x):
         image_list = [ x, self.upscale(F.avg_pool2d(x, kernel_size=self.backbone.image_size//self.backbone.small_image_size)).cpu() ]
