@@ -144,7 +144,7 @@ class DDPM:
                     with self.ema.average_parameters():
                         surfix = '.png' if self.backbone.image_size < 256 else '.jpg'
                         utils.save_image(self.make_test_image(data[:5]),
-                             f'{self.result_folder}/sample_{self.step//1000:04d}_{np.mean(history[-1000*grad_accum:]*grad_accum):.6f}{surfix}',
+                             f'{self.result_folder}/sample_{self.step//1000:04d}_{np.mean(history[-1000*grad_accum:])*grad_accum:.6f}{surfix}',
                              nrow = 5)
                         torch.save({'ema':self.ema.state_dict(), 'opt':self.opt.state_dict()}, self.result_folder + '/model.pt')
                         
