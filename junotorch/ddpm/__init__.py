@@ -142,7 +142,7 @@ class DDPM:
                 print(f'{self.step} step : loss {np.mean(history[-1000*grad_accum:]*grad_accum):.8f} /  {time.time()-stt:.3f}sec')
                 if self.step % 1000 == 0 and self.step and grad_accum_iter == 0:
                     with self.ema.average_parameters():
-                        surfix = '.png' if backbone.image_size < 256 else '.jpg'
+                        surfix = '.png' if self.backbone.image_size < 256 else '.jpg'
                         utils.save_image(self.make_test_image(data[:5]),
                              f'{self.result_folder}/sample_{self.step//1000:04d}_{np.mean(history[-1000*grad_accum:]*grad_accum):.6f}{surfix}',
                              nrow = 5)
