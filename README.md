@@ -9,6 +9,7 @@ pip install -U git+https://github.com/juno-hwang/junotorch.git
 
 ## Usage (DDPM v1)
 
+### DDPM
 ```python
 from junotorch.vision import *
 from junotorch.ddpm import *
@@ -29,6 +30,33 @@ ddpm = DDPM(
     loss_type='l2',
     result_folder = 'result_folder/'
 )
-!nvidia-smi
+
 ddpm.fit('data_folder/', grad_accum=2)
+```
+
+### DDPMUpsampler
+```python
+from junotorch.vision import *
+from ddpm import *
+
+backbone_to256 = EfficientUNetUpsampler(
+    dim = 256,
+    image_size = 256,
+    small_image_size = 64,
+    n_downsample = 4,
+    mid_depth = 3,
+    n_resblock = 1,
+    base_dim = 32,
+    T = 200
+)
+
+ddpm256 = DDPMUpsampler(
+    backbone = backbone_to256,
+    device = 'cuda',
+    batch_size = 32,
+    result_folder = 'result_folder/',
+    loss_type = 'l2'
+)
+
+ddpm256.fit('data_folder/', grad_accum=1)
 ```

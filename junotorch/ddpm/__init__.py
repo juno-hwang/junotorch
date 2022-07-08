@@ -172,7 +172,6 @@ class DDPMUpsampler(DDPM):
         beta, beta_ = self.extract(self.beta, t-1), self.extract(self.beta_, t-1)
         sigma = beta_ ** 0.5
         
-        z = z * 0.968 + torch.randn_like(z) * 0.25 # square sum is 1
         noise = self.backbone(x, z, t)
         x0 = (x - (1-alpha_).sqrt() * noise) / alpha_.sqrt()
         x0 = x0.clamp(min=-1, max=1)
@@ -183,6 +182,7 @@ class DDPMUpsampler(DDPM):
     
     @torch.no_grad()
     def restore(self, x, z, t):
+        z = z * 0.968 + torch.randn_like(z) * 0.25 # square sum is 1
         for i in tqdm(range(t,0,-1)):
             x = self.p(x, z, i)
         return x
