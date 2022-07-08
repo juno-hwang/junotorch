@@ -155,8 +155,7 @@ class DDPMUpsampler(DDPM):
         z = F.avg_pool2d(x, kernel_size=self.backbone.image_size//self.backbone.small_image_size)
         if random.random() > 0.5 : 
             z = transforms.GaussianBlur(3, sigma=(0.4, 0.6))(z)
-        z += torch.randn_like(z) * random.random() * 0.05
-        z = z.clamp(-1, 1)
+        z = z * 0.968 + torch.randn_like(z) * 0.25 # square sum is 1
         x, noise = self.q_xt(x.to(self.device), t, return_noise=True)
         if self.loss_type == 'l1':
             return (self.backbone(x, z, t)-noise).abs().mean()
@@ -173,6 +172,7 @@ class DDPMUpsampler(DDPM):
         beta, beta_ = self.extract(self.beta, t-1), self.extract(self.beta_, t-1)
         sigma = beta_ ** 0.5
         
+        z = z * 0.968 + torch.randn_like(z) * 0.25 # square sum is 1
         noise = self.backbone(x, z, t)
         x0 = (x - (1-alpha_).sqrt() * noise) / alpha_.sqrt()
         x0 = x0.clamp(min=-1, max=1)
