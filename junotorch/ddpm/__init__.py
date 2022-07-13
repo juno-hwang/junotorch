@@ -195,3 +195,97 @@ class DDPMUpsampler(DDPM):
     def make_test_image(self, x):
         image_list = [ x, self.upscale(F.avg_pool2d(x, kernel_size=self.backbone.image_size//self.backbone.small_image_size)).cpu() ]
         return torch.cat(image_list, dim=0)/2 + 0.5
+
+class MaskedDDPM(DDPM):
+    def q_xt(self, x0, t, mask=None, return_noise=False):
+        x0 = x0.to(self.device)
+        if mask == None:
+            mask = torch.ones(x0.shape[0], 1, x0.shape[2], x0.shape[3])
+        mask = mask.to(self.device)
+        if type(t) == int :
+            t = np.array([t] * x0.shape[0])
+        alpha, alpha_ = self.extract(self.alpha, t-1), self.extract(self.alpha_, t)
+        noise = torch.randn_like(x0)
+        xt = alpha_.sqrt()*x0 + (1-alpha_).sqrt()*noise
+        if return_noise:
+            return x0*(1-mask) + xt*mask, noise
+        else:
+            return x0*(1-mask) + xt*mask
+    
+    def random_mask(self):
+        seed, size = random.random(), self.backbone.image_size
+        mask = torch.ones(1, size, size)
+        if seed <0.2 :
+            return mask
+        elif seed<0.3:
+            mask[:,:random.randint(1, size-1),:] *= 0
+            return mask
+        elif seed<0.4:
+            mask[:,random.randint(1, size-1):,:] *= 0
+            return mask
+        elif seed<0.5:
+            mask[:,:, :random.randint(1, size-1)] *= 0
+            return mask
+        elif seed<0.6:
+            mask[:,:, random.randint(1, size-1):] *= 0
+            return mask
+        else :
+            a,b = random.randint(0,size), random.randint(0,size)
+            wi, wf = min(a,b), max(a,b)
+            a,b = random.randint(0,size), random.randint(0,size)
+            hi, hf = min(a,b), max(a,b)
+            mask[:,wi:wf, hi:hf] *= 0
+            return 1-mask
+        
+    def loss(self, x):
+        self.backbone.train()
+        mask = torch.stack([self.random_mask() for i in range(x.shape[0])]).to(self.device)
+        t = np.random.randint(self.T, size=x.shape[0]) + 1
+        x, z = self.q_xt(x.to(self.device), t, mask=mask, return_noise=True)
+        if self.loss_type == 'l1':
+            return ((self.backbone(x, t)-z).abs()*mask).mean()
+        if self.loss_type == 'l2':
+            return ((self.backbone(x, t)-z).square()*mask).mean()
+        
+    @torch.no_grad()
+    def p(self, x, t, mask=None):
+        self.backbone.eval()
+        if type(t) == int :
+            t = np.array([t] * x.shape[0])
+        x = x.to(self.device)
+        if mask == None:
+            mask = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3])
+        mask = mask.to(self.device)
+        alpha, alpha_, alpha_m1 = self.extract(self.alpha, t-1), self.extract(self.alpha_, t), self.extract(self.alpha_, t-1)
+        beta, beta_ = self.extract(self.beta, t-1), self.extract(self.beta_, t-1)
+        sigma = beta_ ** 0.5
+        
+        noise = self.backbone(x, t)
+        x0 = (x - (1-alpha_).sqrt() * noise) / alpha_.sqrt()
+        x0 = x0.clamp(min=-1, max=1)
+        c_x0 = alpha_m1.sqrt() * beta / (1-alpha_)
+        c_xt = alpha.sqrt()*(1-alpha_m1)/(1-alpha_)
+        mu = c_x0 * x0 + c_xt * x
+        denoised = mu + sigma *torch.randn_like(x)
+        return denoised * mask + x * (1-mask)
+        
+    @torch.no_grad()
+    def restore(self, x, t, mask=None):
+        for i in tqdm(range(t,0,-1)):
+            x = self.p(x, i, mask)
+        return x
+    
+    def generate(self, n):
+        x = torch.randn(n, 3, self.backbone.image_size, self.backbone.image_size)
+        return self.restore(x, self.T)
+    
+    def inpaint(self, x, mask):
+        return self.restore(self.q_xt(x, self.backbone.T, mask), self.backbone.T, mask)
+    
+    def make_test_image(self, x):
+        image_list = []
+        T = self.backbone.T
+        for i in range(4):
+            mask = torch.stack([self.random_mask() for i in range(x.shape[0])])
+            image_list.append( self.inpaint(x, mask) )
+        return torch.cat(image_list, dim=0)/2 + 0.5
