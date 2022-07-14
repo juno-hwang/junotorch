@@ -235,7 +235,10 @@ class MaskedDDPM(DDPM):
             a,b = random.randint(0,size), random.randint(0,size)
             hi, hf = min(a,b), max(a,b)
             mask[:,wi:wf, hi:hf] *= 0
-            return 1-mask
+            if random.random() < 0.2:
+                return 1-mask
+            else:
+                return mask
         
     def loss(self, x):
         self.backbone.train()
@@ -287,8 +290,8 @@ class MaskedDDPM(DDPM):
         mask_vertical = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3])
         mask_horizontal = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3])
         mask_extra = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3])
-        mask_vertical[:,:,x.shape[2]//2:,:] *= 0
-        mask_horizontal[:,:,:,x.shape[3]//2:] *= 0
+        mask_vertical[:,:,:x.shape[2]//2,:] *= 0
+        mask_horizontal[:,:,:,:x.shape[3]//2] *= 0
         mask_extra [:,:,x.shape[2]//4:x.shape[2]//4*3,x.shape[3]//4:x.shape[3]//4*3] *= 0
         image_list = [
             self.inpaint(x, mask_vertical),
