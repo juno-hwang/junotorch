@@ -283,9 +283,16 @@ class MaskedDDPM(DDPM):
         return self.restore(self.q_xt(x, self.backbone.T, mask), self.backbone.T, mask)
     
     def make_test_image(self, x):
-        image_list = []
         T = self.backbone.T
-        for i in range(4):
-            mask = torch.stack([self.random_mask() for i in range(x.shape[0])])
-            image_list.append( self.inpaint(x, mask) )
+        mask_vertical = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3])
+        mask_horizontal = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3])
+        mask_extra = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3])
+        mask_vertical[:,:,x.shape[2]//2:,:] *= 0
+        mask_horizontal[:,:,:,x.shape[3]//2:] *= 0
+        mask_extra [:,:,x.shape[2]//4:x.shape[2]//4*3,x.shape[3]//4:x.shape[3]//4*3] *= 0
+        image_list = [
+            self.inpaint(x, mask_vertical),
+            self.inpaint(x, mask_horizontal),
+            self.inpaint(x, mask_extra),
+            self.inpaint(x, None)]
         return torch.cat(image_list, dim=0)/2 + 0.5
