@@ -155,7 +155,7 @@ class DDPMUpsampler(DDPM):
         z = F.avg_pool2d(x, kernel_size=self.backbone.image_size//self.backbone.small_image_size)
         if random.random() > 0.5 : 
             z = transforms.GaussianBlur(3, sigma=(0.4, 0.6))(z)
-        z = z * 0.97979 + torch.randn_like(z) * 0.2 # square sum is 1
+        z = z * 0.94868 + torch.randn_like(z) * 0.1 # square sum is 1
         x, noise = self.q_xt(x.to(self.device), t, return_noise=True)
         if self.loss_type == 'l1':
             return (self.backbone(x, z, t)-noise).abs().mean()
@@ -182,7 +182,7 @@ class DDPMUpsampler(DDPM):
     
     @torch.no_grad()
     def restore(self, x, z, t):
-        z = z * 0.97979 + torch.randn_like(z) * 0.2 # square sum is 1
+        z = z * 0.94868 + torch.randn_like(z) * 0.1 # square sum is 1
         for i in tqdm(range(t,0,-1)):
             x = self.p(x, z, i)
         return x
