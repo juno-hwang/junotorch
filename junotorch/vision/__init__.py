@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 import numpy as np
 import matplotlib.pyplot as plt
-from specnorm import *
+from .specnorm import *
 
 def drawImage(img, scale=2, interpolation='nearest'):
     img = img.cpu().detach().clamp(min=0, max=1)
