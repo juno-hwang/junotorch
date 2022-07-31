@@ -128,7 +128,6 @@ class DDPM:
             for data, _ in iter(dataloader):
                 stt = time.time()
                 loss = self.loss(data)/grad_accum
-                self.opt.zero_grad()
                 loss.backward()
                 history.append(loss.item())
                 grad_accum_iter += 1
@@ -138,6 +137,7 @@ class DDPM:
                     self.ema.update()
                     self.step += 1
                     grad_accum_iter = 0
+                    self.opt.zero_grad()
                     
                 print(f'{self.step} step : loss {np.mean(history[-1000*grad_accum:]*grad_accum):.8f} /  {time.time()-stt:.3f}sec')
                 if self.step % 1000 == 0 and self.step and grad_accum_iter == 0:
