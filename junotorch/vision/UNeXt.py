@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from torch.nn.utils import spectral_norm
-from ..vision import ConvNeXt
+from junotorch.vision import ConvNeXt
 
 class UNeXt(nn.Module):
     def __init__(self, dim, image_size, mid_depth, n_downsample, T, base_dim=128, n_resblock=1, d_in=3):
