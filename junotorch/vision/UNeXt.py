@@ -22,13 +22,13 @@ class UNeXt(nn.Module):
             nn.ModuleList([
                 nn.Conv2d(dims[i], dims[i+1], kernel_size=3, stride=2, padding=1),
                 nn.Sequential(nn.Linear(dim, dims[i+1]*2), nn.GELU(), nn.Linear(dims[i+1]*2, dims[i+1])),
-                nn.Sequential( *[ResBlock(dims[i+1]) for n in range(n_resblock)], ConvNeXt(dims[i+1], kernel_size=7) ),
+                nn.Sequential( *[ResBlock(dims[i+1]) for n in range(n_resblock)], ConvNeXt(dims[i+1], kernel_size=9) ),
             ])for i in range(self.n_downsample)
         ])
-        self.middle = nn.ModuleList([ AdaConvNeXt(dim, kernel_size=7) for i in range(mid_depth) ])
+        self.middle = nn.ModuleList([ AdaConvNeXt(dim, kernel_size=9) for i in range(mid_depth) ])
         self.ups = nn.ModuleList([
             nn.ModuleList([
-                nn.Sequential( *[ResBlock(dims[i+1]) for n in range(n_resblock)], ConvNeXt(dims[i+1], kernel_size=7) ),
+                nn.Sequential( *[ResBlock(dims[i+1]) for n in range(n_resblock)], ConvNeXt(dims[i+1], kernel_size=9) ),
                 nn.Sequential(nn.Linear(dim, dims[i+1]*2), nn.GELU(), nn.Linear(dims[i+1]*2, dims[i+1])),
                 nn.ConvTranspose2d(dims[i+1], dims[i], kernel_size=4, stride=2, padding=1)
             ])for i in range(self.n_downsample)[::-1]
@@ -53,7 +53,7 @@ class UNeXt(nn.Module):
         self.device = next(self.parameters()).device
         x, t, xs = x.to(self.device), self.t_emb(t), []
         
-        x = self.enc(x)
+        x = F.gelu(self.enc(x))
         for down, emb, layer in self.downs:
             x = layer( (down(x) + emb(t)[:,:,None,None] )/np.sqrt(2) )
             xs.append(x)
@@ -79,7 +79,7 @@ class UNeXtUpsampler(UNeXt):
         x, t, xs = x.to(self.device), self.t_emb(t), []
         
         z = F.interpolate(z, scale_factor=self.image_size//self.small_image_size, mode='bicubic').to(self.device)
-        x = self.enc(torch.cat([x,z], dim=1))
+        x = F.gelu(self.enc(torch.cat([x,z], dim=1)))
         for down, emb, layer in self.downs:
             x = layer( (down(x) + emb(t)[:,:,None,None] )/np.sqrt(2) )
             xs.append(x)
