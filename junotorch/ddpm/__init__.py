@@ -65,7 +65,7 @@ class DDPM:
             return x0
     
     @torch.no_grad()
-    def p(self, x, t):
+    def p(self, x, t, q=0.995):
         self.backbone.eval()
         if type(t) == int :
             t = np.array([t] * x.shape[0])
@@ -76,7 +76,15 @@ class DDPM:
         
         noise = self.backbone(x, t)
         x0 = (x - (1-alpha_).sqrt() * noise) / alpha_.sqrt()
-        x0 = x0.clamp(min=-1, max=1)
+        
+        # static thresholding
+        #x0 = x0.clamp(min=-1, max=1)
+        
+        #dynamic thresholding
+        s = torch.quantile(x0.abs().view(x0.shape[0], x0.shape[1], -1), q, dim=-1)
+        s = s.clamp(min=1.0)
+        x0 = x0.clamp(min=-s[:,:,None,None], max=s[:,:,None,None]) / s[:,:,None,None]
+
         c_x0 = alpha_m1.sqrt() * beta / (1-alpha_)
         c_xt = alpha.sqrt()*(1-alpha_m1)/(1-alpha_)
         mu = c_x0 * x0 + c_xt * x
