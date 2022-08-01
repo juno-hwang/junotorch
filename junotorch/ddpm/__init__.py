@@ -171,7 +171,7 @@ class DDPMUpsampler(DDPM):
             return (self.backbone(x, z, t)-noise).square().mean()
     
     @torch.no_grad()
-    def p(self, x, z, t, q=0.995):
+    def p(self, x, z, t, q=0):
         if type(t) == int :
             t = np.array([t] * x.shape[0])
         self.backbone.eval()
