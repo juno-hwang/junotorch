@@ -224,9 +224,9 @@ class MaskedDDPM(DDPM):
         noise = torch.randn_like(x0)
         xt = alpha_.sqrt()*x0 + (1-alpha_).sqrt()*noise
         if return_noise:
-            return torch.cat([x0*(1-mask) + xt*mask, mask], dim=1), noise
+            return torch.cat([x0*(1-mask) + xt*mask, x0, mask], dim=1), noise
         else:
-            return torch.cat([x0*(1-mask) + xt*mask, mask], dim=1)
+            return torch.cat([x0*(1-mask) + xt*mask, x0, mask], dim=1)
     
     def random_mask(self):
         seed, size = random.random(), self.backbone.image_size
@@ -291,7 +291,7 @@ class MaskedDDPM(DDPM):
         c_xt = alpha.sqrt()*(1-alpha_m1)/(1-alpha_)
         mu = c_x0 * x0 + c_xt * x[:,:3]
         denoised = mu + sigma *torch.randn_like(x0)
-        return torch.cat([denoised * mask + x[:,:3] * (1-mask), mask], dim=1)
+        return torch.cat([denoised * mask + x[:,:3] * (1-mask), x[:,3:]], dim=1)
         
     @torch.no_grad()
     def restore(self, x, t):
