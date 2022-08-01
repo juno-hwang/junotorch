@@ -262,9 +262,9 @@ class MaskedDDPM(DDPM):
         t = np.random.randint(self.T, size=x.shape[0]) + 1
         x, z = self.q_xt(x.to(self.device), t, mask=mask, return_noise=True)
         if self.loss_type == 'l1':
-            return ((self.backbone(x, t)-z).abs()*mask).mean()
+            return ((self.backbone(x, t)-z).abs()*mask).sum() / mask.sum()
         if self.loss_type == 'l2':
-            return ((self.backbone(x, t)-z).square()*mask).mean()
+            return ((self.backbone(x, t)-z).square()*mask).sum() / mask.sum()
         
     @torch.no_grad()
     def p(self, x, t, q=0.995):
