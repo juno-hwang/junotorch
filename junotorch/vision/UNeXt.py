@@ -63,7 +63,7 @@ class UNeXt(nn.Module):
             x = (x + xs.pop() + emb(t)[:,:,None,None] ) / np.sqrt(3)
             x = layer(x)
             x = up(x)
-        return self.dec(x)
+        return self.dec(F.gelu(x))
 
 class UNeXtUpsampler(UNeXt):
     def __init__(self, dim, image_size, small_image_size, mid_depth, n_downsample, T, base_dim=128, n_resblock=1, d_in=6):
@@ -89,4 +89,4 @@ class UNeXtUpsampler(UNeXt):
             x = (x + xs.pop() + emb(t)[:,:,None,None] ) / np.sqrt(3)
             x = layer(x)
             x = up(x)
-        return self.dec(x)
+        return self.dec(F.gelu(x))
