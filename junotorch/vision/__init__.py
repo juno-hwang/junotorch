@@ -85,7 +85,7 @@ def ConvNeXt(dim, kernel_size, dim_mult=4):
                 nn.Conv2d(dim, dim * dim_mult, kernel_size=1),
                 nn.BatchNorm2d(dim * dim_mult), nn.GELU(),
                 nn.Conv2d(dim * dim_mult, dim, kernel_size=1),
-                nn.Conv2d(dim_mult, dim, kernel_size=kernel_size, padding=kernel_size//2, groups=dim),
+                nn.Conv2d(dim, dim, kernel_size=kernel_size, padding=kernel_size//2, groups=dim),
             ))
 
 def Downsampler(d_in, d_out, window_size, stride=2):
