@@ -22,13 +22,13 @@ class UNeXt(nn.Module):
             nn.ModuleList([
                 nn.Conv2d(dims[i], dims[i+1], kernel_size=3, stride=2, padding=1),
                 nn.Sequential(nn.Linear(dim, dims[i+1]*2), nn.GELU(), nn.Linear(dims[i+1]*2, dims[i+1])),
-                nn.Sequential( *[ConvNeXt(dim[i+1], kernel_size=7) for n in range(n_resblock)] ),
+                nn.Sequential( *[ConvNeXt(dims[i+1], kernel_size=7) for n in range(n_resblock)] ),
             ])for i in range(self.n_downsample)
         ])
         self.middle = nn.ModuleList([ AdaConvNeXt(dim, kernel_size=7) for i in range(mid_depth) ])
         self.ups = nn.ModuleList([
             nn.ModuleList([
-                nn.Sequential( *[ConvNeXt(dim[i+1], kernel_size=7) for n in range(n_resblock)] ),
+                nn.Sequential( *[ConvNeXt(dims[i+1], kernel_size=7) for n in range(n_resblock)] ),
                 nn.Sequential(nn.Linear(dim, dims[i+1]*2), nn.GELU(), nn.Linear(dims[i+1]*2, dims[i+1])),
                 nn.ConvTranspose2d(dims[i+1], dims[i], kernel_size=4, stride=2, padding=1)
             ])for i in range(self.n_downsample)[::-1]
