@@ -267,20 +267,18 @@ class MaskedDDPM(DDPM):
             return ((self.backbone(x, t)-z).square()*mask).mean()
         
     @torch.no_grad()
-    def p(self, x, t, mask=None, q=0.995):
+    def p(self, x, t, q=0.995):
         self.backbone.eval()
         if type(t) == int :
             t = np.array([t] * x.shape[0])
         x = x.to(self.device)
-        if mask == None:
-            mask = torch.ones(x.shape[0], 1, x.shape[2], x.shape[3])
-        mask = mask.to(self.device)
+        mask = x[:,-1:,:,:]
         alpha, alpha_, alpha_m1 = self.extract(self.alpha, t-1), self.extract(self.alpha_, t), self.extract(self.alpha_, t-1)
         beta, beta_ = self.extract(self.beta, t-1), self.extract(self.beta_, t-1)
         sigma = beta_ ** 0.5
         
         noise = self.backbone(x, t)
-        x0 = (x - (1-alpha_).sqrt() * noise) / alpha_.sqrt()
+        x0 = (x[:,:3] - (1-alpha_).sqrt() * noise) / alpha_.sqrt()
         # static thresholding
         #x0 = x0.clamp(min=-1, max=1)
         
@@ -291,22 +289,22 @@ class MaskedDDPM(DDPM):
 
         c_x0 = alpha_m1.sqrt() * beta / (1-alpha_)
         c_xt = alpha.sqrt()*(1-alpha_m1)/(1-alpha_)
-        mu = c_x0 * x0 + c_xt * x
-        denoised = mu + sigma *torch.randn_like(x)
-        return denoised * mask + x * (1-mask)
+        mu = c_x0 * x0 + c_xt * x[:,:3]
+        denoised = mu + sigma *torch.randn_like(x0)
+        return torch.cat([denoised * mask + x[:,:3] * (1-mask), mask], dim=1)
         
     @torch.no_grad()
-    def restore(self, x, t, mask=None):
+    def restore(self, x, t):
         for i in tqdm(range(t,0,-1)):
-            x = self.p(x, i, mask)
-        return x
+            x = self.p(x, i)
+        return x[:,:3]
     
     def generate(self, n):
         x = torch.randn(n, 3, self.backbone.image_size, self.backbone.image_size)
-        return self.restore(x, self.T)
+        return self.inpaint(x, None)
     
     def inpaint(self, x, mask):
-        return self.restore(self.q_xt(x, self.backbone.T, mask), self.backbone.T, mask)
+        return self.restore(self.q_xt(x, self.backbone.T, mask), self.backbone.T)
     
     def make_test_image(self, x):
         T = self.backbone.T
