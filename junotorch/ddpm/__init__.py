@@ -113,7 +113,7 @@ class DDPM:
         image_list = [ self.restore(self.q_xt(x,i), i).cpu() for i in [0, int(self.T*0.7), self.T, self.T] ]
         return torch.cat(image_list, dim=0)/2 + 0.5
     
-    def fit(self, path, lr=1e-4, grad_accum=1):
+    def fit(self, path, lr=1e-4, grad_accum=1, save_step=1000):
         dataset = ImageFolder(
             path,
             transforms.Compose([
@@ -148,11 +148,11 @@ class DDPM:
                     self.opt.zero_grad()
                     
                 print(f'{self.step} step : loss {np.mean(history[-1000*grad_accum:]*grad_accum):.8f} /  {time.time()-stt:.3f}sec')
-                if self.step % 1000 == 0 and self.step and grad_accum_iter == 0:
+                if self.step % save_step == 0 and self.step and grad_accum_iter == 0:
                     with self.ema.average_parameters():
                         surfix = '.png' if self.backbone.image_size < 256 else '.jpg'
                         utils.save_image(self.make_test_image(data[:5]),
-                             f'{self.result_folder}/sample_{self.step//1000:04d}_{np.mean(history[-1000*grad_accum:])*grad_accum:.6f}{surfix}',
+                             f'{self.result_folder}/sample_{self.step//save_step:04d}_{np.mean(history[-1000*grad_accum:])*grad_accum:.6f}{surfix}',
                              nrow = 5)
                         torch.save({'ema':self.ema.state_dict(), 'opt':self.opt.state_dict()}, self.result_folder + '/model.pt')
                         
@@ -224,9 +224,9 @@ class MaskedDDPM(DDPM):
         noise = torch.randn_like(x0)
         xt = alpha_.sqrt()*x0 + (1-alpha_).sqrt()*noise
         if return_noise:
-            return x0*(1-mask) + xt*mask, noise
+            return torch.cat([x0*(1-mask) + xt*mask, mask], dim=1), noise
         else:
-            return x0*(1-mask) + xt*mask
+            return torch.cat([x0*(1-mask) + xt*mask, mask], dim=1)
     
     def random_mask(self):
         seed, size = random.random(), self.backbone.image_size
@@ -288,7 +288,7 @@ class MaskedDDPM(DDPM):
         s = torch.quantile(x0.abs().view(x0.shape[0], x0.shape[1], -1), q, dim=-1)
         s = s.clamp(min=1.0)
         x0 = x0.clamp(min=-s[:,:,None,None], max=s[:,:,None,None]) / s[:,:,None,None]
-        
+
         c_x0 = alpha_m1.sqrt() * beta / (1-alpha_)
         c_xt = alpha.sqrt()*(1-alpha_m1)/(1-alpha_)
         mu = c_x0 * x0 + c_xt * x
