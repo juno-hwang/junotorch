@@ -33,7 +33,7 @@ class UNeXt(nn.Module):
                 nn.ConvTranspose2d(dims[i+1], dims[i], kernel_size=4, stride=2, padding=1)
             ])for i in range(self.n_downsample)[::-1]
         ])
-        self.dec = nn.Conv2d(base_dim, 3, kernel_size=3)
+        self.dec = nn.Conv2d(base_dim, 3, kernel_size=3, padding=1)
         
         t = np.linspace(0, np.pi, self.T+1)
         self.t_sinusoid = np.array([ np.cos(t*np.exp(freq))
