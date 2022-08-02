@@ -67,7 +67,7 @@ class UNeXt(nn.Module):
 
 class UNeXtUpsampler(UNeXt):
     def __init__(self, dim, image_size, small_image_size, mid_depth, n_downsample, T, base_dim=128, n_resblock=1, d_in=6):
-        super().__init__(dim, image_size, mid_depth, n_downsample, T, base_dim, n_resblock)
+        super().__init__(dim, image_size, mid_depth, n_downsample, T, base_dim, n_resblock, d_in)
         self.small_image_size = small_image_size
         n_params = sum( [np.prod(p.shape) for p in self.parameters()] )
         
