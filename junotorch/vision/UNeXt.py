@@ -33,7 +33,7 @@ class UNeXt(nn.Module):
                 nn.ConvTranspose2d(dims[i+1], dims[i], kernel_size=4, stride=2, padding=1)
             ])for i in range(self.n_downsample)[::-1]
         ])
-        self.dec = nn.Conv2d(base_dim, 3, kernel_size=1)
+        self.dec = nn.Conv2d(base_dim, 3, kernel_size=3)
         
         t = np.linspace(0, np.pi, self.T+1)
         self.t_sinusoid = np.array([ np.cos(t*np.exp(freq))
@@ -68,7 +68,6 @@ class UNeXt(nn.Module):
 class UNeXtUpsampler(UNeXt):
     def __init__(self, dim, image_size, small_image_size, mid_depth, n_downsample, T, base_dim=128, n_resblock=1, d_in=6):
         super().__init__(dim, image_size, mid_depth, n_downsample, T, base_dim, n_resblock)
-        self.enc = nn.Conv2d(d_in, base_dim, kernel_size=3, padding=1)
         self.small_image_size = small_image_size
         n_params = sum( [np.prod(p.shape) for p in self.parameters()] )
         
