@@ -264,7 +264,11 @@ class MaskedDDPM(DDPM):
         if self.loss_type == 'l1':
             return ((self.backbone(x, t)-z).abs()*mask).mean()
         if self.loss_type == 'l2':
-            return ((self.backbone(x, t)-z).square()*mask).mean()
+            if self.backbone.image_size <= 64 :
+                return ((self.backbone(x, t)-z).square()*mask).mean()
+            else : 
+                z_pred = self.backbone(x, t) 
+                return ((z_pred-z).square()*mask).mean() + F.avg_pool2d((z_pred-z)*mask, kernel_size=4).square().mean()
         
     @torch.no_grad()
     def p(self, x, t, q=0.0):
