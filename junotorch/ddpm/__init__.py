@@ -332,7 +332,7 @@ class MaskedDDPMv2(MaskedDDPM):
         mask = torch.stack([self.random_mask() for i in range(x.shape[0])]).to(self.device)
         t = np.random.randint(self.T, size=x.shape[0]) + 1
         x_recon = self.q_xt(x.to(self.device), t, mask=mask)
-        diff = (x_recon - x).square()*mask
+        diff = (x_recon - x[:,:3]).square()*mask
         coef = self.extract((self.alpha_+eps) / (1-self.alpha_+eps), t)
         loss = (diff * coef).mean(dim=(1,2,3))
         loss_clip = loss.detach().clamp(min=1)
