@@ -324,3 +324,34 @@ class MaskedDDPM(DDPM):
             self.inpaint(x, mask_extra),
             self.inpaint(x, None)]
         return torch.cat(image_list, dim=0)/2 + 0.5
+
+class MaskedDDPMv2(MaskedDDPM):
+    def loss(self, x):
+        self.backbone.train()
+        eps = 0.1
+        mask = torch.stack([self.random_mask() for i in range(x.shape[0])]).to(self.device)
+        t = np.random.randint(self.T, size=x.shape[0]) + 1
+        x_recon = self.q_xt(x.to(self.device), t, mask=mask)
+        diff = (x_recon - x).square()*mask
+        coef = self.extract((self.alpha_+eps) / (1-self.alpha_+eps), t)
+        loss = (diff * coef).mean(dim=(1,2,3))
+        loss_clip = loss.detach().clamp(min=1)
+        return (loss / loss_clip).mean()
+
+    @torch.no_grad()
+    def p(self, x, t, q=0.0):
+        self.backbone.eval()
+        if type(t) == int :
+            t = np.array([t] * x.shape[0])
+        x = x.to(self.device)
+        mask = x[:,-1:,:,:]
+        alpha, alpha_, alpha_m1 = self.extract(self.alpha, t-1), self.extract(self.alpha_, t), self.extract(self.alpha_, t-1)
+        beta, beta_ = self.extract(self.beta, t-1), self.extract(self.beta_, t-1)
+        sigma = beta_ ** 0.5
+        
+        x0 = self.backbone(x, t)
+        c_x0 = alpha_m1.sqrt() * beta / (1-alpha_)
+        c_xt = alpha.sqrt()*(1-alpha_m1)/(1-alpha_)
+        mu = c_x0 * x0 + c_xt * x[:,:3]
+        denoised = mu + sigma *torch.randn_like(x0)
+        return torch.cat([denoised*mask+x[:,:3]*(1-mask), mask], dim=1)
