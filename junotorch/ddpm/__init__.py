@@ -328,7 +328,7 @@ class MaskedDDPM(DDPM):
 class MaskedDDPMv2(MaskedDDPM):
     def loss(self, x):
         self.backbone.train()
-        eps = 0.1
+        eps = 0.05
         mask = torch.stack([self.random_mask() for i in range(x.shape[0])]).to(self.device)
         t = np.random.randint(self.T, size=x.shape[0]) + 1
         xt = self.q_xt(x.to(self.device), t, mask=mask)
