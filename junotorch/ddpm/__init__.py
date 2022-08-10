@@ -331,7 +331,8 @@ class MaskedDDPMv2(MaskedDDPM):
         eps = 0.1
         mask = torch.stack([self.random_mask() for i in range(x.shape[0])]).to(self.device)
         t = np.random.randint(self.T, size=x.shape[0]) + 1
-        x_recon = self.q_xt(x.to(self.device), t, mask=mask)
+        xt = self.q_xt(x.to(self.device), t, mask=mask)
+        x_recon = self.backbone(xt, t)
         diff = (x_recon - x[:,:3]).square()*mask
         coef = self.extract((self.alpha_+eps) / (1-self.alpha_+eps), t)
         loss = (diff * coef).mean(dim=(1,2,3))
