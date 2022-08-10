@@ -228,7 +228,7 @@ class MaskedDDPM(DDPM):
         else:
             return torch.cat([xt*mask+x0*(1-mask), mask], dim=1)
     
-    def random_mask(self):
+    def random_mask_(self):
         seed, size = random.random(), self.backbone.image_size
         mask = torch.ones(1, size, size)
         if seed <0.2 :
@@ -255,6 +255,14 @@ class MaskedDDPM(DDPM):
                 return 1-mask
             else:
                 return mask
+
+    def random_mask(self):
+        mask = self.random_mask_()
+        while True:
+            if random.random() < 0.5 :
+                return mask.detach()
+            else:
+                mask = 1-(1-mask)*(1-mask)
         
     def loss(self, x):
         self.backbone.train()
@@ -328,7 +336,7 @@ class MaskedDDPM(DDPM):
 class MaskedDDPMv2(MaskedDDPM):
     def loss(self, x):
         self.backbone.train()
-        eps = 0.05
+        eps = 0.01
         mask = torch.stack([self.random_mask() for i in range(x.shape[0])]).to(self.device)
         t = np.random.randint(self.T, size=x.shape[0]) + 1
         xt = self.q_xt(x.to(self.device), t, mask=mask)
