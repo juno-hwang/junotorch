@@ -125,7 +125,7 @@ class DDPM:
                 transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.shape[0]==1 else (x[:3] if x.shape[0]==4 else x) )
             ])
         )
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=16)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
         self.opt = AdamW(self.backbone.parameters(), lr=lr)
         if self.path:
             self.opt.load_state_dict(torch.load(self.path, map_location='cpu')['opt'])
