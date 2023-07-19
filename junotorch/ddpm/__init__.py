@@ -110,7 +110,7 @@ class DDPM:
             return (self.backbone(x, t)-z).square().mean()
     
     def make_test_image(self, x):
-        image_list = [ self.restore(self.q_xt(x,i), i).cpu() for i in [0, int(self.T*0.7), self.T, self.T] ]
+        image_list = [ self.restore(self.q_xt(x,i), i).cpu() for i in [self.T, self.T] ]
         return torch.cat(image_list, dim=0)/2 + 0.5
     
     def fit(self, path, lr=1e-4, grad_accum=1, save_step=1000):
