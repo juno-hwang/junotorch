@@ -15,7 +15,7 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class DDPM:
-    def __init__(self, backbone, batch_size, s=1e-3, device='cuda', result_folder='', pretrained_model=None, loss_type='l2'):
+    def __init__(self, backbone, batch_size, s=1e-3, device='cuda', result_folder='', pretrained_model=None, loss_type='l2', alpha_=None):
         self.backbone = backbone
         self.T = self.backbone.T
         self.device = device
@@ -28,9 +28,12 @@ class DDPM:
             os.mkdir(result_folder)
         except:
             pass
-        
-        f = torch.cos( (torch.arange(0, self.T+1)/self.T + s ) / (1+s) * (np.pi / 2) ) ** 2
-        self.alpha_ = f / f[0]
+
+        if alpha_ == None:
+            f = torch.cos( (torch.arange(0, self.T+1)/self.T + s ) / (1+s) * (np.pi / 2) ) ** 2
+            self.alpha_ = f / f[0]
+        else:
+            self.alpha_ = alpha_
         self.beta = (1 - self.alpha_[1:]/self.alpha_[:-1]).clamp(max=0.99)
         self.alpha = 1 - self.beta
         self.alpha_ = torch.Tensor(np.append(1, np.cumprod(self.alpha)))
