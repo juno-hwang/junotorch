@@ -1,10 +1,6 @@
 # junotorch
 Custom pytorch modules that I use often.
 
-[황준오] [오후 3:41] https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nucleotide&id=MN996528%2C1&rettype=fasta&tool=biopython
-[황준오] [오후 3:41] https://eutils.ncbi.nlm.nih.gov/entrez/eutils/
-[황준오] [오후 3:41] https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcqi
-
 
 ## Install
 
