@@ -92,6 +92,17 @@ class DDPM:
         c_xt = alpha.sqrt()*(1-alpha_m1)/(1-alpha_)
         mu = c_x0 * x0 + c_xt * x
         return mu + sigma *torch.randn_like(x)
+        
+    @torch.no_grad()
+    def ddim_step(self, x, t, t_prev, eta=0.0):
+        at = ddpm32.alpha_[t]
+        at_prev = ddpm32.alpha_[t_prev]
+        e_t = self.backbone(x, t)
+        x0 = (x - e_t * (1 - at).sqrt()) / at.sqrt()
+        x0 = x0.clamp(min=-1, max=1)
+        sigma_t = ((1 - at / (at_prev)) * (1 - at_prev) / (1 - at)).sqrt() * eta
+        D_xt = (1 - at_prev - sigma_t ** 2).sqrt() * e_t
+        return at_prev.sqrt() * x0 + D_xt + sigma_t * torch.randn_like(x)
     
     @torch.no_grad()
     def restore(self, x, t):
