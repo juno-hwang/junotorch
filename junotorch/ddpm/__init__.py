@@ -95,8 +95,8 @@ class DDPM:
         
     @torch.no_grad()
     def ddim_step(self, x, t, t_prev, eta=0.0):
-        at = ddpm32.alpha_[t]
-        at_prev = ddpm32.alpha_[t_prev]
+        at = self.alpha_[t]
+        at_prev = self.alpha_[t_prev]
         e_t = self.backbone(x, t)
         x0 = (x - e_t * (1 - at).sqrt()) / at.sqrt()
         x0 = x0.clamp(min=-1, max=1)
@@ -105,9 +105,9 @@ class DDPM:
         return at_prev.sqrt() * x0 + D_xt + sigma_t * torch.randn_like(x)
     
     @torch.no_grad()
-    def generate(n, n_eval=100, eta=0, init=None):
+    def generate(self, n, n_eval=100, eta=0, init=None):
         timestep = [ int(t) for t in np.linspace(0, self.T, n_eval+1)]
-        x = torch.randn(n, 3, pipeline[-1].backbone.image_size, pipeline[-1].backbone.image_size).to(pipeline[0].device) if init is None else init
+        x = torch.randn(n, 3, self.backbone.image_size, self.backbone.image_size).to(self.device) if init is None else init
         for i in tqdm(range(n_eval, 0, -1)):
             x = ddim_step(x, timestep[i], timestep[i-1], eta=eta)
         return x
