@@ -140,7 +140,7 @@ class DDPM:
             return (z - z_recon -self.backbone(x, t)).square().mean()
     
     def make_test_image(self, x):
-        image_list = [ self.restore(self.q_xt(x,i), i).cpu() for i in [self.T, self.T] ]
+        image_list = [ self.generate(10, init=self.init_noise), self.generate(10).cpu() ]
         return torch.cat(image_list, dim=0)/2 + 0.5
     
     def fit(self, path, lr=1e-4, grad_accum=1, save_step=1000):
@@ -160,6 +160,7 @@ class DDPM:
         if self.path:
             self.opt.load_state_dict(torch.load(self.path, map_location='cpu')['opt'])
         history = []
+        self.init_noise = torch.randn(10, 3, self.backbone.image_size, self.backbone.image_size).to(self.device)
         
         grad_accum_iter = 0
         while True:
