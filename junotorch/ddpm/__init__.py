@@ -138,6 +138,11 @@ class DDPM:
             z_small = F.avg_pool2d(z, 2)
             z_recon = F.interpolate(z_small, size=self.backbone.image_size, mode='nearest')
             return (z - z_recon -self.backbone(x, t)).square().mean()
+        if 'l2_' in self.loss_type :
+            scale = int(self.loss_type.split('l2_')[-1])
+            z_small = F.avg_pool2d(z, scale)
+            z_recon = F.interpolate(z_small, size=self.backbone.image_size, mode='nearest')
+            return (z - z_recon -self.backbone(x, t)).square().mean()
     
     def make_test_image(self, x):
         image_list = [ self.generate(10, init=self.init_noise), self.generate(10).cpu() ]
