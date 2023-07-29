@@ -109,7 +109,7 @@ class DDPM:
         timestep = [ int(t) for t in np.linspace(0, self.T, n_eval+1)]
         x = torch.randn(n, 3, self.backbone.image_size, self.backbone.image_size).to(self.device) if init is None else init
         for i in tqdm(range(n_eval, 0, -1)):
-            x = ddim_step(x, timestep[i], timestep[i-1], eta=eta)
+            x = self.ddim_step(x, timestep[i], timestep[i-1], eta=eta)
         return x
     
     @torch.no_grad()
