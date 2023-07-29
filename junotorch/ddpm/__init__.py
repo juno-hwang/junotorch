@@ -145,7 +145,7 @@ class DDPM:
             return (z - z_recon -self.backbone(x, t)).square().mean()
     
     def make_test_image(self, x):
-        image_list = [ self.generate(10, init=self.init_noise), self.generate(10).cpu() ]
+        image_list = [ self.generate(10, init=self.init_noise).cpu(), self.generate(10).cpu() ]
         return torch.cat(image_list, dim=0)/2 + 0.5
     
     def fit(self, path, lr=1e-4, grad_accum=1, save_step=1000):
